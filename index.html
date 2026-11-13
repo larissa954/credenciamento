@@ -116,15 +116,20 @@ function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 var mem={};
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return (k in mem)?mem[k]:d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}
-var CFGAPI={url:'',key:''};
+/* ===== API do credenciamento (Apps Script separado, sem senha) ===== */
+var API_URL = 'https://script.google.com/macros/s/AKfycbw5NkniOxzA8idKjAjCqxgLk_92cz3_H3ttrWbHsQ4OYSMjMksVH9gJd_3hys9zfZfugQ/exec';
+var EVENTO_FIXO = {id:'montes-claros',name:'Rota GLP MG — Montes Claros',date:'2026-11-26',regSheet:'api',regTab:''};
+var CFGAPI={url:''};
+var MAPA_FN={credListar:'listar',credRegistrarImpressao:'registrarImpressao',credCadastrarNaHora:'cadastrarNaHora'};
 function gs(fn){
   var a=[].slice.call(arguments,1);
-  if(fn==='listEvents')fn='credEventos';
-  return fetch(CFGAPI.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:a,key:CFGAPI.key}),redirect:'follow'})
+  if(fn==='listEvents')return Promise.resolve([JSON.stringify(EVENTO_FIXO)]);
+  var f=MAPA_FN[fn];if(!f)return Promise.reject(new Error('Função desconhecida'));
+  var args=fn==='credListar'?[]:a.slice(2);   // o servidor já sabe qual é a planilha
+  return fetch(CFGAPI.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:f,args:args}),redirect:'follow'})
    .then(function(x){return x.json()}).then(function(j){
-     if(j&&j.auth===false){var e=new Error('Chave inválida');e.auth=true;throw e}
-     if(!j||!j.ok)throw new Error((j&&j.erro)||'Erro no servidor');
-     return fn==='credEventos'?(j.r||[]).map(function(e){return JSON.stringify(e)}):j.r});
+     if(!j)throw new Error('Resposta vazia da API');
+     return j});
 }
 function toast(t,ms){var e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none'},ms||2600)}
 function hhmm(s){var m=/(\d{2}:\d{2})(:\d{2})?\s*$/.exec(String(s||''));return m?m[1]:''}
@@ -731,29 +736,28 @@ setInterval(function(){if(S.ev&&document.visibilityState==='visible'&&!(M&&M.ocu
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&S.ev)sincronizar(false)});
 
 function telaConfig(erro){
-  $('#root').innerHTML='<div class="wrap"><div class="card" style="margin-top:24px"><h2 style="margin:0 0 6px">Conectar à Central</h2>'+
-   '<p style="color:var(--mut);font-size:14px;margin:0 0 12px">Cole o link do app da Central (termina em /exec) e a chave definida em CRED_KEY.</p>'+
+  $('#root').innerHTML='<div class="wrap"><div class="card" style="margin-top:24px"><h2 style="margin:0 0 6px">Conectar ao credenciamento</h2>'+
+   '<p style="color:var(--mut);font-size:14px;margin:0 0 12px">Cole o link da API do credenciamento (começa com https://script.google.com/macros/s/ e termina em /exec).</p>'+
    (erro?'<div class="msg bad">'+esc(erro)+'</div>':'')+
-   '<label>Link da Central</label><input id="cfgUrl" value="'+esc(CFGAPI.url)+'" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">'+
-   '<label>Chave</label><input id="cfgKey" type="password" value="'+esc(CFGAPI.key)+'" autocomplete="off">'+
+   '<label>Link da API</label><input type="text" style="width:100%" id="cfgUrl" value="'+esc(CFGAPI.url)+'" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">'+
    '<div class="acts"><button class="btn pri big" id="cfgOk">Conectar</button></div></div></div>';
   $('#cfgOk').onclick=function(){
-    CFGAPI.url=$('#cfgUrl').value.trim();CFGAPI.key=$('#cfgKey').value.trim();
-    if(!/^https:\/\/script\.google\.com\//.test(CFGAPI.url)||!CFGAPI.key){telaConfig('Preencha o link da Central e a chave.');return}
+    CFGAPI.url=$('#cfgUrl').value.trim();
+    if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(CFGAPI.url)){telaConfig('O link precisa terminar em /exec e vir da implantação do Apps Script.');return}
     lsSet('cred-api',CFGAPI);boot();
   };
 }
 async function boot(){
   $('#root').innerHTML='<div class="empty">Carregando…</div>';
-  try{await carregarEventos()}catch(e){telaConfig(e&&e.auth?'Chave inválida.':'Não consegui falar com a Central: '+((e&&e.message)||e));return}
+  try{await carregarEventos()}catch(e){telaConfig(/failed to fetch/i.test(String(e&&e.message))?'Não consegui falar com a API. Confira: (1) o link está completo e termina em /exec; (2) na implantação, “Quem pode acessar” está como “Qualquer pessoa”; (3) você criou uma nova versão depois de editar o script.':'Erro: '+((e&&e.message)||e));return}
   var alvo=S.eventos.filter(function(e){return e.id===EV_ID})[0]||S.eventos.filter(function(e){return e.id===lsGet('cred-ev','')})[0];
   if(alvo)iniciarEvento(alvo);else renderEscolha();
 }
 (function(){
   var q=new URLSearchParams(location.search),sv=lsGet('cred-api',{});
-  CFGAPI.url=q.get('api')||sv.url||'';CFGAPI.key=q.get('k')||sv.key||'';EV_ID=q.get('ev')||'';
-  if(q.get('api')||q.get('k')){lsSet('cred-api',CFGAPI);try{history.replaceState(null,'',location.pathname+(EV_ID?'?ev='+encodeURIComponent(EV_ID):''))}catch(e){}}
-  if(!CFGAPI.url||!CFGAPI.key)telaConfig('');else boot();
+  CFGAPI.url=API_URL||q.get('api')||sv.url||'';EV_ID='montes-claros';
+  if(q.get('api')){lsSet('cred-api',CFGAPI);try{history.replaceState(null,'',location.pathname)}catch(e){}}
+  if(!CFGAPI.url)telaConfig('');else boot();
 })();
 })();
 </script>
