@@ -239,17 +239,17 @@ function desenhar(canvas,d){
   ctx.textBaseline='top';ctx.fillStyle='#000';
   var pad=Math.max(8,Math.round(Math.min(W,H)*0.04));
   var qr=d.qr&&!d.qr.vazio?d.qr:null;
-  var gap=12,capH=qr?16:0;
+  var gap=12,capH=qr?28:0;
   var tx=pad,tw=W-2*pad-(qr?qr.px+gap:0),ty=pad,th=H-2*pad;
   var ex=(d.extras||[]).filter(function(x){return String(x).trim()});
   var exLh=26,exH=ex.length*(exLh+4);
   var corpoH=th-exH-(exH?6:0);
   var tamN=[],k;for(k=Math.min(60,Math.floor(corpoH*0.5));k>=22;k-=2)tamN.push(k);
   if(!tamN.length)tamN=[22];
-  var N=ajustar(ctx,d.nome||' ',tw,d.empresa?corpoH*0.68:corpoH,tamN,'700',3);
+  var N=ajustar(ctx,d.nome||' ',tw,d.empresa?corpoH*0.62:corpoH,tamN,'700',3);
   var nH=N.ls.length*N.lh;
-  var tamE=[];for(k=Math.min(30,N.sz-4);k>=16;k-=2)tamE.push(k);
-  if(!tamE.length)tamE=[16];
+  var tamE=[];for(k=Math.min(44,N.sz-2);k>=18;k-=2)tamE.push(k);
+  if(!tamE.length)tamE=[18];
   var E=d.empresa?ajustar(ctx,d.empresa,tw,Math.max(20,corpoH-nH-8),tamE,'400',2):null;
   var eH=E?E.ls.length*E.lh+8:0;
   var y=ty+Math.max(0,Math.round((corpoH-nH-eH)/2));
@@ -275,12 +275,12 @@ function desenhar(canvas,d){
     ctx.fillStyle='#000';
     var ins=0;
     for(var r=0;r<qr.n;r++)for(var c=0;c<qr.n;c++)if(qr.q.isDark(r,c))ctx.fillRect(bx+(c+qz)*qm,by+(r+qz)*qm,qm-ins,qm-ins);
-    ctx.font='700 13px Arial,Helvetica,sans-serif';ctx.textAlign='center';
-    ctx.fillText('SALVAR CONTATO',bx+qr.px/2,by+qr.px+2);
+    ctx.font='700 21px Arial,Helvetica,sans-serif';ctx.textAlign='center';
+    ctx.fillText('SALVAR CONTATO',bx+qr.px/2,by+qr.px+3);
     ctx.textAlign='left';
   }
 }
-function maxQRpx(){var D=dimensoes();return Math.floor(Math.min(D.W*0.48,D.H-2*Math.max(8,Math.round(Math.min(D.W,D.H)*0.04))-16))}
+function maxQRpx(){var D=dimensoes();return Math.floor(Math.min(D.W*0.48,D.H-2*Math.max(8,Math.round(Math.min(D.W,D.H)*0.04))-28))}
 
 /* ---------- impressão: ESC/POS por Bluetooth (BLE) ---------- */
 function rasterizar(canvas){
