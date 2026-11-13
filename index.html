@@ -161,8 +161,8 @@ function foneE164(s){
 }
 
 /* ---------- configuração (fica guardada neste aparelho) ---------- */
-var CFG=Object.assign({largura:384,altura:35,girar:'nao',pacote:100,atraso:25,avanco:4,operador:'',qrPadrao:true,qrEmpresa:true,qrEmail:true},lsGet('cred-cfg',{}));
-function salvarCfg(){lsSet('cred-cfg',CFG)}
+var CFG=Object.assign({largura:576,altura:40,girar:'nao',pacote:100,atraso:25,avanco:4,operador:'',qrPadrao:true,qrEmpresa:false,qrEmail:false},lsGet('cred-cfg2',{}));
+function salvarCfg(){lsSet('cred-cfg2',CFG)}
 
 /* ---------- estado ---------- */
 var S={ev:null,eventos:[],pessoas:[],f:'pend',q:'',sync:0,erro:'',offline:false,pend:lsGet('cred-pend',[]),syncing:false};
@@ -178,38 +178,34 @@ function vEsc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').
 function montarVcard(nome,empresa,tel,email){
   var L=['BEGIN:VCARD','VERSION:3.0','FN:'+vEsc(nome)];
   if(empresa)L.push('ORG:'+vEsc(empresa));
-  if(tel)L.push('TEL;TYPE=CELL:'+tel);
+  if(tel)L.push('TEL:'+tel);
   if(email)L.push('EMAIL:'+email);
   L.push('END:VCARD');
   return L.join('\n');
 }
-/* Escolhe o menor QR que cabe no espaço, com módulos de pelo menos 3 pontos (leitura segura em papel térmico).
-   Se não couber, tira a empresa e depois o e-mail do QR. */
+/* QR enxuto e GRANDE: papel térmico borra os pontos, então quanto menos dados, maior cada quadradinho (ideal 6-8 pontos).
+   Por padrão só nome + telefone. Empresa/e-mail entram só se marcados e se o QR continuar com quadrados de pelo menos 5 pontos. */
 function montarQR(d,maxPx){
   var tel=foneE164(d.fone),mail=String(d.email||'').trim();
   if(!tel&&!mail)return {vazio:true,motivo:'Sem telefone nem e-mail: não há contato para colocar no QR.'};
   var tent=[{emp:d.incEmpresa,mail:d.incEmail}];
   if(d.incEmpresa)tent.push({emp:false,mail:d.incEmail});
   if(d.incEmail||d.incEmpresa)tent.push({emp:false,mail:false});
-  if(!tel&&!mail)tent=[];
-  var qz=2,ultimo=null,aviso='';
+  var qz=3,ultimo=null,aviso='',MIN=5,MAX=8;
   for(var i=0;i<tent.length;i++){
     var t=tent[i];
-    var texto=montarVcard(d.nome,t.emp?d.empresa:'',tel,t.mail?mail:'');
-    for(var e=0;e<2;e++){
-      var ecc=e===0?'M':'L';
-      var q=qrcode(0,ecc);q.addData(texto,'Byte');q.make();
-      var n=q.getModuleCount();
-      ultimo={q:q,n:n,ecc:ecc,texto:texto,emp:t.emp,mail:t.mail&&!!mail};
-      if((n+2*qz)*3<=maxPx){
-        var m=Math.min(5,Math.floor(maxPx/(n+2*qz)));
-        if(i>0)aviso='Para o QR caber e ler bem, ficou sem '+(!t.emp&&d.incEmpresa&&d.empresa?'a empresa':'')+(!t.emp&&d.incEmpresa&&d.empresa&&!t.mail&&d.incEmail&&mail?' e ':'')+(!t.mail&&d.incEmail&&mail?'o e-mail':'')+'.';
-        return {q:q,n:n,ecc:ecc,m:m,qz:qz,px:(n+2*qz)*m,texto:texto,emp:t.emp,mail:t.mail&&!!mail,aviso:aviso,tel:!!tel};
-      }
+    var texto=montarVcard(d.nome,t.emp?d.empresa:'',tel,(t.mail||!tel)?mail:'');
+    var q=qrcode(0,'L');q.addData(texto,'Byte');q.make();
+    var n=q.getModuleCount();
+    ultimo={q:q,n:n,ecc:'L',texto:texto,emp:t.emp,mail:(t.mail||!tel)&&!!mail};
+    if((n+2*qz)*MIN<=maxPx){
+      var m=Math.min(MAX,Math.floor(maxPx/(n+2*qz)));
+      if(i>0)aviso='Para o QR ler bem, ficou sem '+(!t.emp&&d.incEmpresa&&d.empresa?'a empresa':'')+(!t.emp&&d.incEmpresa&&d.empresa&&!t.mail&&d.incEmail&&mail?' e ':'')+(!t.mail&&d.incEmail&&mail?'o e-mail':'')+'.';
+      return {q:q,n:n,ecc:'L',m:m,qz:qz,px:(n+2*qz)*m,texto:texto,emp:ultimo.emp,mail:ultimo.mail,aviso:aviso,tel:!!tel};
     }
   }
-  var m2=Math.max(1,Math.floor(maxPx/(ultimo.n+2*qz)));
-  return {q:ultimo.q,n:ultimo.n,ecc:ultimo.ecc,m:m2,qz:qz,px:(ultimo.n+2*qz)*m2,texto:ultimo.texto,emp:ultimo.emp,mail:ultimo.mail,aviso:'QR pequeno demais para o papel: pode não ler. Aumente a altura/largura nos Ajustes ou desmarque empresa e e-mail.',tel:!!tel,pequeno:true};
+  var m2=Math.max(2,Math.floor(maxPx/(ultimo.n+2*qz)));
+  return {q:ultimo.q,n:ultimo.n,ecc:'L',m:m2,qz:qz,px:(ultimo.n+2*qz)*m2,texto:ultimo.texto,emp:ultimo.emp,mail:ultimo.mail,aviso:'QR pequeno demais para o papel: pode não ler. Aumente a altura nos Ajustes.',tel:!!tel,pequeno:true};
 }
 
 /* ---------- etiqueta: desenho ---------- */
@@ -277,13 +273,14 @@ function desenhar(canvas,d){
     var qm=qr.m,qz=qr.qz;
     ctx.fillStyle='#fff';ctx.fillRect(bx,by,qr.px,qr.px);
     ctx.fillStyle='#000';
-    for(var r=0;r<qr.n;r++)for(var c=0;c<qr.n;c++)if(qr.q.isDark(r,c))ctx.fillRect(bx+(c+qz)*qm,by+(r+qz)*qm,qm,qm);
+    var ins=0;
+    for(var r=0;r<qr.n;r++)for(var c=0;c<qr.n;c++)if(qr.q.isDark(r,c))ctx.fillRect(bx+(c+qz)*qm,by+(r+qz)*qm,qm-ins,qm-ins);
     ctx.font='700 13px Arial,Helvetica,sans-serif';ctx.textAlign='center';
     ctx.fillText('SALVAR CONTATO',bx+qr.px/2,by+qr.px+2);
     ctx.textAlign='left';
   }
 }
-function maxQRpx(){var D=dimensoes();return Math.floor(Math.min(D.W*0.42,D.H-2*Math.max(8,Math.round(Math.min(D.W,D.H)*0.04))-16))}
+function maxQRpx(){var D=dimensoes();return Math.floor(Math.min(D.W*0.48,D.H-2*Math.max(8,Math.round(Math.min(D.W,D.H)*0.04))-16))}
 
 /* ---------- impressão: ESC/POS por Bluetooth (BLE) ---------- */
 function rasterizar(canvas){
@@ -514,7 +511,7 @@ function abrirEtiqueta(p){
   renderEtiqueta();
 }
 function abrirTeste(){
-  M={p:null,nome:'Maria da Silva',empresa:'Gás Exemplo Ltda',extras:['PALESTRANTE'],fone:'(31) 99999-9999',email:'maria@exemplo.com.br',qr:true,incEmp:true,incMail:true,ocupado:false,teste:true};
+  M={p:null,nome:'Maria da Silva',empresa:'Gás Exemplo Ltda',extras:['PALESTRANTE'],fone:'(31) 99999-9999',email:'maria@exemplo.com.br',qr:true,incEmp:false,incMail:false,ocupado:false,teste:true};
   renderEtiqueta();
 }
 function renderEtiqueta(){
@@ -672,7 +669,7 @@ function abrirAjustes(){
   $('#aL').value=String(CFG.largura);$('#aG').value=CFG.girar;
 }
 function lerAjustes(){
-  CFG.largura=+$('#aL').value||384;CFG.altura=Math.max(15,+$('#aA').value||35);CFG.girar=$('#aG').value;
+  CFG.largura=+$('#aL').value||576;CFG.altura=Math.max(15,+$('#aA').value||40);CFG.girar=$('#aG').value;
   CFG.avanco=Math.max(0,+$('#aV').value||0);CFG.pacote=Math.max(20,+$('#aP').value||100);CFG.atraso=Math.max(0,+$('#aD').value||0);
   CFG.operador=$('#aO').value.trim();CFG.qrPadrao=$('#aQ').checked;CFG.qrEmpresa=$('#aE').checked;CFG.qrEmail=$('#aM').checked;
   salvarCfg();
