@@ -117,7 +117,7 @@ var mem={};
 function lsGet(k,d){try{var v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return (k in mem)?mem[k]:d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}
 /* ===== API do credenciamento (Apps Script separado, sem senha) ===== */
-var API_URL = 'https://script.google.com/macros/s/AKfycbw5NkniOxzA8idKjAjCqxgLk_92cz3_H3ttrWbHsQ4OYSMjMksVH9gJd_3hys9zfZfugQ/exec';
+var CRED_API_URL = 'https://script.google.com/macros/s/AKfycbw5NkniOxzA8idKjAjCqxgLk_92cz3_H3ttrWbHsQ4OYSMjMksVH9gJd_3hys9zfZfugQ/exec';
 var EVENTO_FIXO = {id:'montes-claros',name:'Rota GLP MG — Montes Claros',date:'2026-11-26',regSheet:'api',regTab:''};
 var CFGAPI={url:''};
 var MAPA_FN={credListar:'listar',credRegistrarImpressao:'registrarImpressao',credCadastrarNaHora:'cadastrarNaHora'};
@@ -757,7 +757,7 @@ async function boot(){
 }
 (function(){
   var q=new URLSearchParams(location.search),sv=lsGet('cred-api',{});
-  CFGAPI.url=API_URL||q.get('api')||sv.url||'';EV_ID='montes-claros';
+  CFGAPI.url=CRED_API_URL||q.get('api')||sv.url||'';EV_ID='montes-claros';
   if(q.get('api')){lsSet('cred-api',CFGAPI);try{history.replaceState(null,'',location.pathname)}catch(e){}}
   if(!CFGAPI.url)telaConfig('');else boot();
 })();
