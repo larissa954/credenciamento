@@ -252,6 +252,11 @@ function desenhar(canvas,d){
   if(!tamE.length)tamE=[18];
   var E=d.empresa?ajustar(ctx,d.empresa,tw,Math.max(20,corpoH-nH-8),tamE,'400',2):null;
   var eH=E?E.ls.length*E.lh+8:0;
+  /* aproxima texto e QR: mede o texto de verdade e centraliza o conjunto na etiqueta */
+  function larg(ls,font){ctx.font=font;var m=0;ls.forEach(function(l){m=Math.max(m,ctx.measureText(l).width)});return m}
+  var textW=Math.min(tw,Math.ceil(Math.max(larg(N.ls,'700 '+N.sz+'px Arial,Helvetica,sans-serif'),E?larg(E.ls,'400 '+E.sz+'px Arial,Helvetica,sans-serif'):0,ex.length?180:0)));
+  var gap2=26,bloco=textW+(qr?gap2+qr.px:0);
+  tx=Math.max(pad,Math.round((W-bloco)/2));tw=textW;
   var y=ty+Math.max(0,Math.round((corpoH-nH-eH)/2));
   ctx.font='700 '+N.sz+'px Arial,Helvetica,sans-serif';
   N.ls.forEach(function(l){ctx.fillText(l,tx,y);y+=N.lh});
@@ -269,7 +274,7 @@ function desenhar(canvas,d){
     ctx.textAlign='left';ctx.fillStyle='#000';yy+=exLh+4;
   });
   if(qr){
-    var bx=W-pad-qr.px,by=Math.round((H-(qr.px+capH))/2);
+    var bx=tx+textW+gap2,by=Math.round((H-(qr.px+capH))/2);
     var qm=qr.m,qz=qr.qz;
     ctx.fillStyle='#fff';ctx.fillRect(bx,by,qr.px,qr.px);
     ctx.fillStyle='#000';
