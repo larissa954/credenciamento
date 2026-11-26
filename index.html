@@ -137,15 +137,12 @@ function hm(ms){try{return new Date(ms).toLocaleTimeString('pt-BR',{hour:'2-digi
 function agoraFmt(){var d=new Date(),p=function(n){return ('0'+n).slice(-2)};return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
 function uuid(){return 't'+Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
 
-/* Nome na etiqueta: "LUCIANO ANDRE" e "Andre luiz araujo" viram "Luciano Andre" e "Andre Luiz Araujo" */
+/* Nome na etiqueta: sempre padronizado. "LUCIANO ANDRE", "Andre luiz araujo" e "Maria Da SILVA" viram "Luciano Andre", "Andre Luiz Araujo" e "Maria da Silva" */
 var PEQ={de:1,da:1,do:1,das:1,dos:1,e:1};
 function tituloNome(s){
   s=String(s||'').replace(/\s+/g,' ').trim();
   if(!s)return s;
   var ws=s.split(' ');
-  var tudoMai=(s===s.toUpperCase()&&/[A-ZÀ-Ú]/.test(s));
-  var minus=ws.some(function(w,i){return !(i>0&&PEQ[w.toLowerCase()])&&w.charAt(0)!==w.charAt(0).toUpperCase()});
-  if(!tudoMai&&!minus)return s;
   return ws.map(function(w,i){w=w.toLowerCase();return (i>0&&PEQ[w])?w:w.charAt(0).toUpperCase()+w.slice(1)}).join(' ');
 }
 function cnpjOk(c){
@@ -231,8 +228,10 @@ function ajustar(ctx,txt,maxW,maxH,tams,peso,maxLin){
   ls=ls.map(function(l){while(l.length>1&&ctx.measureText(l).width>maxW)l=l.slice(0,-1);return l});
   return {sz:sz,ls:ls,lh:lh};
 }
+var COND=0.9;   /* nome levemente condensado na horizontal (1 = normal) */
 function desenhar(canvas,d){
   var D=dimensoes(),W=D.W,H=D.H;
+  var emp=String(d.empresa||'').trim().toUpperCase();   /* revenda sempre em CAPS */
   canvas.width=W;canvas.height=H;
   var ctx=canvas.getContext('2d');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
@@ -246,20 +245,20 @@ function desenhar(canvas,d){
   var corpoH=th-exH-(exH?6:0);
   var tamN=[],k;for(k=Math.min(60,Math.floor(corpoH*0.5));k>=22;k-=2)tamN.push(k);
   if(!tamN.length)tamN=[22];
-  var N=ajustar(ctx,d.nome||' ',tw,d.empresa?corpoH*0.62:corpoH,tamN,'700',3);
+  var N=ajustar(ctx,d.nome||' ',tw/COND,emp?corpoH*0.62:corpoH,tamN,'700',3);
   var nH=N.ls.length*N.lh;
   var tamE=[];for(k=Math.min(44,N.sz-2);k>=18;k-=2)tamE.push(k);
   if(!tamE.length)tamE=[18];
-  var E=d.empresa?ajustar(ctx,d.empresa,tw,Math.max(20,corpoH-nH-8),tamE,'400',2):null;
+  var E=emp?ajustar(ctx,emp,tw,Math.max(20,corpoH-nH-8),tamE,'400',2):null;
   var eH=E?E.ls.length*E.lh+8:0;
   /* aproxima texto e QR: mede o texto de verdade e centraliza o conjunto na etiqueta */
   function larg(ls,font){ctx.font=font;var m=0;ls.forEach(function(l){m=Math.max(m,ctx.measureText(l).width)});return m}
-  var textW=Math.min(tw,Math.ceil(Math.max(larg(N.ls,'700 '+N.sz+'px Arial,Helvetica,sans-serif'),E?larg(E.ls,'400 '+E.sz+'px Arial,Helvetica,sans-serif'):0,ex.length?180:0)));
+  var textW=Math.min(tw,Math.ceil(Math.max(larg(N.ls,'700 '+N.sz+'px Arial,Helvetica,sans-serif')*COND,E?larg(E.ls,'400 '+E.sz+'px Arial,Helvetica,sans-serif'):0,ex.length?180:0)));
   var gap2=26,bloco=textW+(qr?gap2+qr.px:0);
   tx=Math.max(pad,Math.round((W-bloco)/2));tw=textW;
   var y=ty+Math.max(0,Math.round((corpoH-nH-eH)/2));
   ctx.font='700 '+N.sz+'px Arial,Helvetica,sans-serif';
-  N.ls.forEach(function(l){ctx.fillText(l,tx,y);y+=N.lh});
+  N.ls.forEach(function(l){ctx.save();ctx.translate(tx,y);ctx.scale(COND,1);ctx.fillText(l,0,0);ctx.restore();y+=N.lh});
   if(E){
     y+=8;ctx.font='400 '+E.sz+'px Arial,Helvetica,sans-serif';
     E.ls.forEach(function(l){ctx.fillText(l,tx,y);y+=E.lh});
